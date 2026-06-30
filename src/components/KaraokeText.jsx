@@ -1,71 +1,111 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const KaraokeLine = ({ text, progress, activeColor = '#f3e5ab' }) => {
-    const normalizedProgress = Math.min(Math.max(progress, 0), 1);
-    
-    // El largo total real del string original para mantener sincronizados los índices
-    const totalChars = text.length;
-    const litChars = Math.floor(normalizedProgress * totalChars);
-    
-    // Separamos por palabras manteniendo los bloques de espacio en el array resultante
-    const elements = text.split(/(\s+)/);
-    
-    // Declaramos un acumulador para saber exactamente en qué posición global del string va cada letra
-    let globalCharIndex = 0;
+const KaraokeLine = ({ 
+    text, 
+    timeInLine = 0, 
+    lineDuration = 1,
+    activeColor = '#f3e5ab', 
+    isLineActive = true 
+}) => {
+    const segments = Array.isArray(text) ? text : [{ t: text }];
+
+    // 1. Calcular la distribución del tiempo inteligente (ahora con pausas)
+    let explicitDuration = 0;
+    let explicitPauses = 0;
+    let unassignedChars = 0;
+
+    segments.forEach(seg => {
+        if (seg.d !== undefined) explicitDuration += seg.d;
+        else unassignedChars += seg.t.length;
+        
+        if (seg.p !== undefined) explicitPauses += seg.p; // Sumamos los tiempos muertos
+    });
+
+    // El tiempo sobrante se reparte, restando también las pausas
+    const remainingTime = Math.max(0, lineDuration - explicitDuration - explicitPauses);
+    const timePerChar = unassignedChars > 0 ? remainingTime / unassignedChars : 0;
+
+    // 2. Crear los bloques de palabras con tiempos exactos matemáticos
+    let wordBlocks = [];
+    let currentStartTime = 0;
+
+    segments.forEach(seg => {
+        const segColor = seg.c || activeColor;
+        const segDuration = seg.d !== undefined ? seg.d : (seg.t.length * timePerChar);
+        const timePerSegChar = seg.t.length > 0 ? (segDuration / seg.t.length) : 0;
+
+        const parts = seg.t.split(/(\s+)/);
+
+        parts.forEach(part => {
+            if (part === '') return;
+            const isSpace = /^\s+$/.test(part);
+            
+            let blockChars = [];
+            part.split('').forEach(char => {
+                blockChars.push({
+                    char: char,
+                    color: segColor,
+                    startTime: currentStartTime,
+                    endTime: currentStartTime + timePerSegChar
+                });
+                currentStartTime += timePerSegChar;
+            });
+
+            wordBlocks.push({
+                isSpace,
+                chars: blockChars
+            });
+        });
+
+        // ¡LA MAGIA DE LA PAUSA! 
+        // Al terminar de procesar este segmento, adelantamos el reloj en silencio
+        if (seg.p !== undefined) {
+            currentStartTime += seg.p;
+        }
+    });
 
     return (
         <div className="relative inline-block leading-tight w-full">
             <span className="flex flex-wrap justify-center content-center gap-y-2">
-                {elements.map((element, elementIndex) => {
-                    if (element === '') return null;
+                {wordBlocks.map((block, blockIdx) => {
                     
-                    // Caso A: Si el elemento actual es un espacio en blanco
-                    if (/^\s+$/.test(element)) {
-                        globalCharIndex += element.length; // Sumamos los espacios al índice global
+                    if (block.isSpace) {
                         return (
-                            <span key={`space-${elementIndex}`} className="inline-block">
-                                {'\u00A0'.repeat(element.length)}
+                            <span key={`space-${blockIdx}`} className="inline-block">
+                                {'\u00A0'.repeat(block.chars.length)}
                             </span>
                         );
                     }
-                    
-                    // Caso B: Si es una palabra, la envolvemos en un contenedor irrompible (whitespace-nowrap)
-                    const chars = element.split('');
+
                     return (
-                        <span key={`word-${elementIndex}`} className="inline-block whitespace-nowrap">
-                            {chars.map((char, charIndex) => {
-                                const currentIndex = globalCharIndex;
-                                globalCharIndex++; // Avanzamos el contador letra por letra
-                                
-                                const isActive = currentIndex < litChars;
-                                const charProgress = normalizedProgress * totalChars - currentIndex;
-                                const charOpacity = Math.min(Math.max(charProgress, 0), 1);
-                                
+                        <span key={`word-${blockIdx}`} className="inline-block whitespace-nowrap">
+                            {block.chars.map((charData, charIdx) => {
+                                const { char, color, startTime, endTime } = charData;
+                                const charDuration = endTime - startTime;
+
+                                let charProgress = 0;
+                                if (timeInLine >= startTime) {
+                                    charProgress = charDuration > 0 
+                                        ? Math.min((timeInLine - startTime) / charDuration, 1) 
+                                        : 1;
+                                }
+
+                                const isActive = isLineActive && (timeInLine >= startTime);
+                                const charOpacity = charProgress;
+
                                 return (
                                     <motion.span
-                                        key={`char-${elementIndex}-${charIndex}`}
+                                        key={`char-${blockIdx}-${charIdx}`}
                                         className="inline-block transition-all duration-150 ease-out"
                                         style={{
-                                            color: isActive 
-                                                ? activeColor 
-                                                : 'rgba(255, 255, 255, 0.25)', 
-                                            textShadow: isActive 
-                                                ? `0 0 ${10 + charOpacity * 15}px ${activeColor}80` 
-                                                : 'none',
-                                            transform: isActive 
-                                                ? `scale(${1 + charOpacity * 0.05})` 
-                                                : 'scale(1)',
+                                            color: isActive ? color : 'rgba(255, 255, 255, 0.25)', 
+                                            textShadow: isActive ? `0 0 ${10 + charOpacity * 15}px ${color}80` : 'none',
+                                            transform: isActive ? `scale(${1 + charOpacity * 0.05})` : 'scale(1)',
+                                            fontWeight: isActive ? 'bold' : 'normal'
                                         }}
-                                        animate={{
-                                            y: isActive ? [0, -3, 0] : 0,
-                                        }}
-                                        transition={{
-                                            y: {
-                                                duration: 0.3,
-                                                ease: "easeOut"
-                                            }
-                                        }}
+                                        animate={{ y: isActive ? [0, -3, 0] : 0 }}
+                                        transition={{ y: { duration: 0.3, ease: "easeOut" } }}
                                     >
                                         {char}
                                     </motion.span>

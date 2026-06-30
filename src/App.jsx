@@ -67,10 +67,10 @@ function App() {
   if (activeLineIndex === -1) activeLineIndex = 0;
   const activeLine = lyricsData[activeLineIndex] || null;
 
-  let progress = 0;
+  // NUEVO CÁLCULO DE TIEMPO (Reemplaza a 'progress')
+  let timeInLine = 0;
   if (activeLine) {
-    const timeInLine = currentTime - activeLine.time;
-    progress = Math.min(timeInLine / activeLine.duration, 1);
+    timeInLine = currentTime - activeLine.time;
   }
 
   const colorStyle = { color: activeSong.themeColor };
@@ -136,14 +136,17 @@ function App() {
                       initial={{ opacity: 0, y: 30, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -30, scale: 1.1, filter: 'blur(8px)' }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
                       className="w-full flex justify-center py-4" 
                     >
                       <div className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-bold leading-tight text-center px-2 w-full">
+                         {/* LÍNEA PRINCIPAL ACTUALIZADA */}
                          <KaraokeLine 
                             text={activeLine.text} 
-                            progress={progress} 
+                            timeInLine={timeInLine} 
+                            lineDuration={activeLine.duration} 
                             activeColor={activeLine.lineColor || activeSong.themeColor} 
+                            isLineActive={true}
                          />
                       </div>
                     </motion.div>
@@ -155,29 +158,55 @@ function App() {
                 </AnimatePresence>
              </div>
 
-             <div className="flex flex-col gap-4 text-center items-center h-[140px] overflow-hidden">
-                <AnimatePresence>
-                  {[1, 2].map((offset) => {
-                      const nextLine = lyricsData[activeLineIndex + offset];
-                      if (!nextLine) return null;
-                      return (
-                          <motion.p 
-                            key={activeLineIndex + offset}
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ 
-                              opacity: offset === 1 ? 0.5 : 0.25, 
-                              y: 0,
-                              scale: offset === 1 ? 1 : 0.92
-                            }}
-                            exit={{ opacity: 0, y: -15 }}
-                            transition={{ duration: 0.6 }}
-                            className={`font-medium ${offset === 1 ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}
-                          >
-                              {nextLine.text}
-                          </motion.p>
-                      );
-                  })}
-                </AnimatePresence>
+             {/* SECCIÓN INFERIOR DINÁMICA: MODO BILINGÜE O VISTA PREVIA */}
+             <div className="flex flex-col gap-4 text-center items-center h-[140px] overflow-hidden mt-6">
+                {activeSong.isTranslated ? (
+                    <AnimatePresence mode="wait">
+                        {activeLine && activeLine.translation && (
+                            <motion.div
+                                key={`trans-${activeLineIndex}`}
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 0.8, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.4 }}
+                                className="text-2xl md:text-4xl font-medium italic drop-shadow-md"
+                                style={{ color: activeSong.themeColor || '#f3e5ab' }}
+                            >
+                                {activeLine.translation}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                ) : (
+                    <AnimatePresence>
+                      {[1, 2].map((offset) => {
+                          const nextLine = lyricsData[activeLineIndex + offset];
+                          if (!nextLine) return null;
+                          return (
+                              <motion.p 
+                                key={`prev-${activeLineIndex + offset}`}
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ 
+                                  opacity: offset === 1 ? 0.5 : 0.25, 
+                                  y: 0,
+                                  scale: offset === 1 ? 1 : 0.92
+                                }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.3 }}
+                                className={`font-medium ${offset === 1 ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}
+                              >
+                                {/* VISTAS PREVIAS ACTUALIZADAS */}
+                                <KaraokeLine 
+                                    text={nextLine.text} 
+                                    timeInLine={0} 
+                                    lineDuration={nextLine.duration} 
+                                    activeColor={nextLine.lineColor || activeSong.themeColor}
+                                    isLineActive={false} 
+                                />
+                              </motion.p>
+                          );
+                      })}
+                    </AnimatePresence>
+                )}
              </div>
 
            </div>
