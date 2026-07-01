@@ -80,7 +80,7 @@ lyrics: [
       { time: 54.10, text: "Ya no sé qué hacer conmigo", duration: 3.5 },
       { time: 58.00, text: ". . .", duration: 2.5 }, 
     ]
-  },
+  },/*
   {
     id: 'perfect',
     title: 'Perfect',
@@ -195,36 +195,36 @@ lyrics: [
             translation: "Cariño, solo bésame lento", 
             duration: 5.5 
           },
-          { time: 58.5, 
+          { time: 51.5, 
             text: [
-              { t: "Your ", d: 0.3 }, 
-              { t: "heart ", d: 0.4 }, 
+              { t: "Your ", d: 0.4 }, 
+              { t: "heart ", d: 0.5 }, 
               { t: "is ", d: 0.2 }, 
-              { t: "all ", d: 0.2 }, 
-              { t: "I ", d: 0.2 }, 
-              { t: "own", d: 1.0 }
+              { t: "all ", d: 0.5 }, 
+              { t: "I ", d: 0.3 }, 
+              { t: "own", d: 1.5 }
             ], 
             translation: "Tu corazón es todo lo que poseo", 
             duration: 4.5 
           },
-          { time: 63.5, 
+          { time: 55.0, 
             text: [
-              { t: "And ", d: 0.3 }, 
+              { t: "And ", d: 0.4 }, 
               { t: "in ", d: 0.2 }, 
-              { t: "your ", d: 0.3 }, 
-              { t: "eyes, ", d: 0.4 },
-              { t: "you're ", d: 0.4 }, 
-              { t: "holding ", d: 0.6 }, 
+              { t: "your ", d: 0.4 }, 
+              { t: "eyes, ", d: 0.7 },
+              { t: "you're ", d: 0.5 }, 
+              { t: "holding ", d: 1 }, 
               { t: "mine", d: 1.2 }
             ], 
             translation: "Y en tus ojos, sostienes los míos", 
             duration: 6.0 
           },
-          { time: 70.0, 
+          { time: 62.3, 
             text: [
-              { t: "Baby ", d: 0.4 }, 
-              { t: "I'm, ", d: 0.3 }, 
-              { t: "dancing ", d: 0.6 }, 
+              { t: "Baby ", d: 1.5 }, 
+              { t: "I'm, ", d: 0.5, p: 2.2 }, 
+              { t: "dancing ", d: 0.7 }, 
               { t: "in ", d: 0.2 }, 
               { t: "the ", d: 0.2 }, 
               { t: "dark", d: 1.2 }
@@ -232,7 +232,7 @@ lyrics: [
             translation: "Bebé, estoy bailando en la oscuridad", 
             duration: 5.0 
           },
-          { time: 76.0, 
+          { time: 70.0, 
             text: [
               { t: "With ", d: 0.3 }, 
               { t: "you ", d: 0.2 }, 
@@ -375,5 +375,5 @@ lyrics: [
             translation: "Te ves perfecta esta noche", 
             duration: 6.0 }
         ]
-  }
+  }*/
 ];
