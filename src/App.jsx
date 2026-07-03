@@ -10,6 +10,27 @@ function App() {
   
   // REFERENCIA AL ELEMENTO DE AUDIO HTML5
   const audioRef = useRef(null);
+  const progressBarRef = useRef(null);
+
+  const handleSeek = (e) => {
+    if (!progressBarRef.current || !audioRef.current) return;
+    
+    // Obtenemos las dimensiones reales de la barra en la pantalla
+    const rect = progressBarRef.current.getBoundingClientRect();
+    
+    // Calculamos en qué píxel se hizo clic relativo al borde izquierdo de la barra
+    const clickX = e.clientX - rect.left;
+    
+    // Lo convertimos a un porcentaje (de 0.0 a 1.0)
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    
+    // Calculamos el nuevo tiempo multiplicando el porcentaje por la duración total
+    const newTime = percentage * totalDuration;
+    
+    // Actualizamos el reproductor nativo y nuestro estado
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
 
   const activeSong = useMemo(() => 
     songLibrary.find(s => s.id === activeSongId) || songLibrary[0]
@@ -211,15 +232,26 @@ function App() {
 
            </div>
            
-           <div className="absolute bottom-10 left-0 w-full flex justify-center opacity-30 z-10">
-             <div className="w-3/4 h-2 bg-gray-800 rounded-full overflow-hidden relative">
-               <motion.div 
-                 className="h-full absolute left-0 top-0"
-                 style={{ backgroundColor: activeSong.themeColor }}
-                 initial={{ width: '0%' }}
-                 animate={{ width: `${(currentTime / totalDuration) * 100}%` }}
-                 transition={{ duration: 0.1 }}
-               />
+           {/* BARRA DE PROGRESO INTERACTIVA */}
+           <div className="absolute bottom-10 left-0 w-full flex justify-center z-50">
+             {/* 
+               Añadimos un contenedor más alto (h-10) con cursor-pointer para que 
+               sea fácil de hacer clic sin tener que atinarle a la línea delgada 
+             */}
+             <div 
+               className="w-3/4 h-10 flex items-center cursor-pointer group"
+               onClick={handleSeek}
+               ref={progressBarRef}
+             >
+               <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden relative opacity-30 group-hover:opacity-70 transition-opacity duration-300">
+                 <motion.div 
+                   className="h-full absolute left-0 top-0"
+                   style={{ backgroundColor: activeSong.themeColor }}
+                   initial={{ width: '0%' }}
+                   animate={{ width: `${(currentTime / totalDuration) * 100}%` }}
+                   transition={{ duration: 0.1 }}
+                 />
+               </div>
              </div>
            </div>
 

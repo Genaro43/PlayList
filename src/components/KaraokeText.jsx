@@ -10,7 +10,6 @@ const KaraokeLine = ({
 }) => {
     const segments = Array.isArray(text) ? text : [{ t: text }];
 
-    // 1. Calcular la distribución del tiempo inteligente (ahora con pausas)
     let explicitDuration = 0;
     let explicitPauses = 0;
     let unassignedChars = 0;
@@ -19,14 +18,12 @@ const KaraokeLine = ({
         if (seg.d !== undefined) explicitDuration += seg.d;
         else unassignedChars += seg.t.length;
         
-        if (seg.p !== undefined) explicitPauses += seg.p; // Sumamos los tiempos muertos
+        if (seg.p !== undefined) explicitPauses += seg.p;
     });
 
-    // El tiempo sobrante se reparte, restando también las pausas
     const remainingTime = Math.max(0, lineDuration - explicitDuration - explicitPauses);
     const timePerChar = unassignedChars > 0 ? remainingTime / unassignedChars : 0;
 
-    // 2. Crear los bloques de palabras con tiempos exactos matemáticos
     let wordBlocks = [];
     let currentStartTime = 0;
 
@@ -58,8 +55,6 @@ const KaraokeLine = ({
             });
         });
 
-        // ¡LA MAGIA DE LA PAUSA! 
-        // Al terminar de procesar este segmento, adelantamos el reloj en silencio
         if (seg.p !== undefined) {
             currentStartTime += seg.p;
         }
@@ -102,7 +97,8 @@ const KaraokeLine = ({
                                             color: isActive ? color : 'rgba(255, 255, 255, 0.25)', 
                                             textShadow: isActive ? `0 0 ${10 + charOpacity * 15}px ${color}80` : 'none',
                                             transform: isActive ? `scale(${1 + charOpacity * 0.05})` : 'scale(1)',
-                                            fontWeight: isActive ? 'bold' : 'normal'
+                                            // ¡Eliminamos el fontWeight de aquí! 
+                                            // Ahora siempre heredará el font-bold de App.jsx evitando el salto.
                                         }}
                                         animate={{ y: isActive ? [0, -3, 0] : 0 }}
                                         transition={{ y: { duration: 0.3, ease: "easeOut" } }}
