@@ -1,40 +1,21 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import KaraokeLine from './components/KaraokeText';
+import RoseEffect from './components/RoseEffect'; // Importación del nuevo efecto visual
 import { songLibrary } from './data/songs';
+import PetalRain from './components/PetalRain';
 
 function App() {
   const [activeSongId, setActiveSongId] = useState(songLibrary[0].id);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0); 
-  
-  // REFERENCIA AL ELEMENTO DE AUDIO HTML5
+  const [currentTime, setCurrentTime] = useState(0);
+
   const audioRef = useRef(null);
   const progressBarRef = useRef(null);
 
-  const handleSeek = (e) => {
-    if (!progressBarRef.current || !audioRef.current) return;
-    
-    // Obtenemos las dimensiones reales de la barra en la pantalla
-    const rect = progressBarRef.current.getBoundingClientRect();
-    
-    // Calculamos en qué píxel se hizo clic relativo al borde izquierdo de la barra
-    const clickX = e.clientX - rect.left;
-    
-    // Lo convertimos a un porcentaje (de 0.0 a 1.0)
-    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
-    
-    // Calculamos el nuevo tiempo multiplicando el porcentaje por la duración total
-    const newTime = percentage * totalDuration;
-    
-    // Actualizamos el reproductor nativo y nuestro estado
-    audioRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
-  const activeSong = useMemo(() => 
+  const activeSong = useMemo(() =>
     songLibrary.find(s => s.id === activeSongId) || songLibrary[0]
-  , [activeSongId]);
+    , [activeSongId]);
 
   const lyricsData = activeSong.lyrics;
 
@@ -43,12 +24,10 @@ function App() {
     const lastLine = lyricsData[lyricsData.length - 1];
     return lastLine.time + lastLine.duration;
   }, [lyricsData]);
-  
-  // --- SINCRONIZACIÓN PERFECTA CON EL AUDIO ---
+
   useEffect(() => {
     let animationFrameId;
 
-    // Función que lee el tiempo exacto del .mp3 a 60 FPS
     const updateProgress = () => {
       if (audioRef.current && isPlaying) {
         setCurrentTime(audioRef.current.currentTime);
@@ -57,26 +36,34 @@ function App() {
     };
 
     if (isPlaying) {
-      // Reproducir audio y empezar a trackear el tiempo
       audioRef.current.play().catch(e => console.error("Error reproduciendo audio:", e));
       animationFrameId = requestAnimationFrame(updateProgress);
     } else {
-      // Pausar audio si se sale
       if (audioRef.current) {
         audioRef.current.pause();
       }
     }
 
-    // Detener animación si superamos el tiempo de la letra
     if (currentTime > totalDuration && isPlaying) {
       setIsPlaying(false);
     }
-    
+
     return () => {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, [isPlaying, currentTime, totalDuration]); 
-  
+  }, [isPlaying, currentTime, totalDuration]);
+
+  const handleSeek = (e) => {
+    if (!progressBarRef.current || !audioRef.current) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    const newTime = percentage * totalDuration;
+
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
   let activeLineIndex = lyricsData.findIndex((line, index) => {
     const nextLine = lyricsData[index + 1];
     if (nextLine) {
@@ -88,7 +75,6 @@ function App() {
   if (activeLineIndex === -1) activeLineIndex = 0;
   const activeLine = lyricsData[activeLineIndex] || null;
 
-  // NUEVO CÁLCULO DE TIEMPO (Reemplaza a 'progress')
   let timeInLine = 0;
   if (activeLine) {
     timeInLine = currentTime - activeLine.time;
@@ -98,13 +84,8 @@ function App() {
 
   return (
     <div className="h-screen w-full bg-black flex flex-col items-center justify-center overflow-hidden font-serif relative" style={colorStyle}>
-      
-      {/* REPRODUCTOR DE AUDIO OCULTO */}
-      <audio 
-        ref={audioRef} 
-        src={activeSong.audioSrc} 
-        preload="auto"
-      />
+
+      <audio ref={audioRef} src={activeSong.audioSrc} preload="auto" />
 
       <div className="absolute inset-0 z-0 pointer-events-none opacity-30">
         <div className="absolute top-1/4 left-1/4 text-4xl animate-bounce delay-1000">♪</div>
@@ -124,11 +105,10 @@ function App() {
               <button
                 key={song.id}
                 onClick={() => setActiveSongId(song.id)}
-                className={`p-4 border rounded-xl transition-all duration-300 flex flex-col items-center ${
-                  activeSongId === song.id 
-                    ? 'border-current bg-white/10 scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]' 
-                    : 'border-white/20 opacity-50 hover:opacity-80 hover:bg-white/5'
-                }`}
+                className={`p-4 border rounded-xl transition-all duration-300 flex flex-col items-center ${activeSongId === song.id
+                  ? 'border-current bg-white/10 scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]'
+                  : 'border-white/20 opacity-50 hover:opacity-80 hover:bg-white/5'
+                  }`}
                 style={{ color: activeSongId === song.id ? song.themeColor : '#ffffff' }}
               >
                 <span className="text-2xl font-bold">{song.title}</span>
@@ -136,9 +116,16 @@ function App() {
               </button>
             ))}
           </div>
-          
-          <button 
-            onClick={() => setIsPlaying(true)}
+
+          <button
+            onClick={() => {
+              const startAt = activeSong.snippetStart || 0;
+              setCurrentTime(startAt);
+              if (audioRef.current) {
+                audioRef.current.currentTime = startAt;
+              }
+              setIsPlaying(true);
+            }}
             className="text-7xl mt-4 hover:scale-110 transition-transform duration-300 cursor-pointer drop-shadow-[0_0_25px_currentColor]"
           >
             ▶
@@ -146,133 +133,150 @@ function App() {
         </div>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center p-4 absolute inset-0 text-center z-10">
-           
-           <div className="w-full max-w-5xl z-20 relative px-4 flex flex-col gap-6 items-center min-h-[50vh] justify-center">
-             
-             <div className="flex flex-col items-center mb-12 min-h-[200px] justify-center relative w-full">
+
+          {/* --- NUEVA SECCIÓN DE EFECTOS DE FONDO --- */}
+          <AnimatePresence>
+            {activeSong.visualEffects?.map((effect, index) => {
+              const isEffectActive = currentTime >= effect.startTime && currentTime <= effect.endTime;
+
+              if (isEffectActive && effect.type === 'rose') {
+                return (
+                  <motion.div
+                    key={`effect-${index}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, transition: { duration: 2 } }}
+                    className="absolute inset-0 z-0"
+                  >
+                    <RoseEffect />
+
+                  </motion.div>
+                );
+              }
+              return null;
+            })}
+          </AnimatePresence>
+          {/* ---------------------------------------- */}
+
+          <div className="w-full max-w-5xl z-20 relative px-4 flex flex-col gap-6 items-center min-h-[50vh] justify-center">
+
+            <div className="flex flex-col items-center mb-12 min-h-[200px] justify-center relative w-full">
+              <AnimatePresence mode="wait">
+                {activeLine ? (
+                  <motion.div
+                    key={activeLineIndex}
+                    initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -30, scale: 1.1, filter: 'blur(8px)' }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="w-full flex justify-center py-4"
+                  >
+                    <div className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-bold leading-tight text-center px-2 w-full">
+                      <KaraokeLine
+                        text={activeLine.text}
+                        timeInLine={timeInLine}
+                        lineDuration={activeLine.duration}
+                        activeColor={activeLine.lineColor || activeSong.themeColor}
+                        isLineActive={true}
+                      />
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.span initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} className="text-4xl">
+                    ♪
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="flex flex-col gap-4 text-center items-center h-[140px] overflow-hidden mt-6">
+              {activeSong.isTranslated ? (
                 <AnimatePresence mode="wait">
-                  {activeLine ? (
+                  {activeLine && activeLine.translation && (
                     <motion.div
-                      key={activeLineIndex}
-                      initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -30, scale: 1.1, filter: 'blur(8px)' }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className="w-full flex justify-center py-4" 
+                      key={`trans-${activeLineIndex}`}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 0.8, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-2xl md:text-4xl font-medium italic drop-shadow-md"
+                      style={{ color: activeSong.themeColor || '#f3e5ab' }}
                     >
-                      <div className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-bold leading-tight text-center px-2 w-full">
-                         {/* LÍNEA PRINCIPAL ACTUALIZADA */}
-                         <KaraokeLine 
-                            text={activeLine.text} 
-                            timeInLine={timeInLine} 
-                            lineDuration={activeLine.duration} 
-                            activeColor={activeLine.lineColor || activeSong.themeColor} 
-                            isLineActive={true}
-                         />
-                      </div>
+                      {activeLine.translation}
                     </motion.div>
-                  ) : (
-                    <motion.span initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} className="text-4xl">
-                      ♪
-                    </motion.span>
                   )}
                 </AnimatePresence>
-             </div>
+              ) : (
+                <AnimatePresence>
+                  {[1, 2].map((offset) => {
+                    const nextLine = lyricsData[activeLineIndex + offset];
+                    if (!nextLine) return null;
+                    return (
+                      <motion.p
+                        key={`prev-${activeLineIndex + offset}`}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{
+                          opacity: offset === 1 ? 0.5 : 0.25,
+                          y: 0,
+                          scale: offset === 1 ? 1 : 0.92
+                        }}
+                        exit={{ opacity: 0, y: -15 }}
+                        transition={{ duration: 0.2 }}
+                        className={`font-medium ${offset === 1 ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}
+                      >
+                        <KaraokeLine
+                          text={nextLine.text}
+                          timeInLine={0}
+                          lineDuration={nextLine.duration}
+                          activeColor={nextLine.lineColor || activeSong.themeColor}
+                          isLineActive={false}
+                        />
+                      </motion.p>
+                    );
+                  })}
+                </AnimatePresence>
+              )}
+            </div>
 
-             {/* SECCIÓN INFERIOR DINÁMICA: MODO BILINGÜE O VISTA PREVIA */}
-             <div className="flex flex-col gap-4 text-center items-center h-[140px] overflow-hidden mt-6">
-                {activeSong.isTranslated ? (
-                    <AnimatePresence mode="wait">
-                        {activeLine && activeLine.translation && (
-                            <motion.div
-                                key={`trans-${activeLineIndex}`}
-                                initial={{ opacity: 0, y: 15 }}
-                                animate={{ opacity: 0.8, y: 0 }}
-                                exit={{ opacity: 0, y: -15 }}
-                                transition={{ duration: 0.4 }}
-                                className="text-2xl md:text-4xl font-medium italic drop-shadow-md"
-                                style={{ color: activeSong.themeColor || '#f3e5ab' }}
-                            >
-                                {activeLine.translation}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                ) : (
-                    <AnimatePresence>
-                      {[1, 2].map((offset) => {
-                          const nextLine = lyricsData[activeLineIndex + offset];
-                          if (!nextLine) return null;
-                          return (
-                              <motion.p 
-                                key={`prev-${activeLineIndex + offset}`}
-                                initial={{ opacity: 0, y: 15 }}
-                                animate={{ 
-                                  opacity: offset === 1 ? 0.5 : 0.25, 
-                                  y: 0,
-                                  scale: offset === 1 ? 1 : 0.92
-                                }}
-                                exit={{ opacity: 0, y: -15 }}
-                                transition={{ duration: 0.3 }}
-                                className={`font-medium ${offset === 1 ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}
-                              >
-                                {/* VISTAS PREVIAS ACTUALIZADAS */}
-                                <KaraokeLine 
-                                    text={nextLine.text} 
-                                    timeInLine={0} 
-                                    lineDuration={nextLine.duration} 
-                                    activeColor={nextLine.lineColor || activeSong.themeColor}
-                                    isLineActive={false} 
-                                />
-                              </motion.p>
-                          );
-                      })}
-                    </AnimatePresence>
-                )}
-             </div>
+          </div>
 
-           </div>
-           
-           {/* BARRA DE PROGRESO INTERACTIVA */}
-           <div className="absolute bottom-10 left-0 w-full flex justify-center z-50">
-             {/* 
-               Añadimos un contenedor más alto (h-10) con cursor-pointer para que 
-               sea fácil de hacer clic sin tener que atinarle a la línea delgada 
-             */}
-             <div 
-               className="w-3/4 h-10 flex items-center cursor-pointer group"
-               onClick={handleSeek}
-               ref={progressBarRef}
-             >
-               <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden relative opacity-30 group-hover:opacity-70 transition-opacity duration-300">
-                 <motion.div 
-                   className="h-full absolute left-0 top-0"
-                   style={{ backgroundColor: activeSong.themeColor }}
-                   initial={{ width: '0%' }}
-                   animate={{ width: `${(currentTime / totalDuration) * 100}%` }}
-                   transition={{ duration: 0.1 }}
-                 />
-               </div>
-             </div>
-           </div>
+          <div className="absolute bottom-10 left-0 w-full flex justify-center z-50">
+            <div
+              className="w-3/4 h-10 flex items-center cursor-pointer group"
+              onClick={handleSeek}
+              ref={progressBarRef}
+            >
+              <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden relative opacity-30 group-hover:opacity-70 transition-opacity duration-300">
+                <motion.div
+                  className="h-full absolute left-0 top-0"
+                  style={{ backgroundColor: activeSong.themeColor }}
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${(currentTime / totalDuration) * 100}%` }}
+                  transition={{ duration: 0.1 }}
+                />
+              </div>
+            </div>
+          </div>
 
-           <button 
-             onClick={() => {
-               setIsPlaying(false);
-               setCurrentTime(0);
-               if (audioRef.current) {
-                 audioRef.current.pause();
-                 audioRef.current.currentTime = 0; // Reiniciar el audio al volver
-               }
-             }}
-             className="absolute top-5 right-5 text-sm opacity-60 hover:opacity-100 z-50 border px-4 py-2 rounded-full transition-all hover:bg-white/10"
-             style={{ borderColor: activeSong.themeColor, color: activeSong.themeColor }}
-           >
-             ⟲ CAMBIAR / REINICIAR
-           </button>
-           
-           <div className="absolute top-5 left-5 text-sm opacity-60 font-mono" style={colorStyle}>
-             {Math.floor(currentTime)}s / {Math.floor(totalDuration)}s
-           </div>
+          <button
+            onClick={() => {
+              setIsPlaying(false);
+              const startAt = activeSong.snippetStart || 0;
+              setCurrentTime(startAt);
+              if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = startAt;
+              }
+            }}
+            className="absolute top-5 right-5 text-sm opacity-60 hover:opacity-100 z-50 border px-4 py-2 rounded-full transition-all hover:bg-white/10"
+            style={{ borderColor: activeSong.themeColor, color: activeSong.themeColor }}
+          >
+            ⟲ CAMBIAR / REINICIAR
+          </button>
+
+          <div className="absolute top-5 left-5 text-sm opacity-60 font-mono" style={colorStyle}>
+            {Math.floor(currentTime)}s / {Math.floor(totalDuration)}s
+          </div>
         </div>
       )}
     </div>
