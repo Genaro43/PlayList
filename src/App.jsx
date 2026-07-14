@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import KaraokeLine from './components/KaraokeText';
-import RoseEffect from './components/RoseEffect'; // Importación del nuevo efecto visual
+import RoseEffect from './components/RoseEffect';
 import { songLibrary } from './data/songs';
-import PetalRain from './components/PetalRain';
 
 function App() {
   const [activeSongId, setActiveSongId] = useState(songLibrary[0].id);
@@ -13,11 +12,98 @@ function App() {
   const audioRef = useRef(null);
   const progressBarRef = useRef(null);
 
+  // --- NUEVAS REFERENCIAS PARA CONTROLAR LA RUEDA Y EL SCROLL ---
+  const isAutoScrolling = useRef(false);
+  const autoScrollTimeout = useRef(null);
+  const wheelTimeout = useRef(null);
+
   const activeSong = useMemo(() =>
     songLibrary.find(s => s.id === activeSongId) || songLibrary[0]
     , [activeSongId]);
 
   const lyricsData = activeSong.lyrics;
+
+  // 1. FUNCIÓN MAESTRA DE NAVEGACIÓN: Centra la canción elegida de forma segura
+  const navigateToSong = (songId) => {
+    isAutoScrolling.current = true; // Apaga el detector táctil momentáneamente
+    setActiveSongId(songId);
+
+    document.getElementById(`card-${songId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest'
+    });
+
+    // Enciende el detector táctil otra vez tras terminar la animación
+    if (autoScrollTimeout.current) clearTimeout(autoScrollTimeout.current);
+    autoScrollTimeout.current = setTimeout(() => {
+      isAutoScrolling.current = false;
+    }, 500);
+  };
+
+  // 2. DETECTOR DE RUEDA DE MOUSE (VERTICAL)
+  const handleWheel = (e) => {
+    // Si el usuario desliza horizontalmente (Ej. Trackpad de Mac), dejamos que el navegador lo maneje solo
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+    // Bloqueador para no saltar 10 canciones si giras la rueda muy rápido
+    if (wheelTimeout.current) return;
+
+    const currentIndex = songLibrary.findIndex(s => s.id === activeSongId);
+    let nextIndex = currentIndex;
+
+    // Rueda hacia abajo = Siguiente canción
+    if (e.deltaY > 0 && currentIndex < songLibrary.length - 1) {
+      nextIndex++;
+    }
+    // Rueda hacia arriba = Canción anterior
+    else if (e.deltaY < 0 && currentIndex > 0) {
+      nextIndex--;
+    }
+
+    if (nextIndex !== currentIndex) {
+      navigateToSong(songLibrary[nextIndex].id);
+    }
+
+    // Esperar 400ms antes de aceptar otro "tick" de la rueda del mouse
+    wheelTimeout.current = setTimeout(() => {
+      wheelTimeout.current = null;
+    }, 400);
+  };
+
+  // 3. DETECTOR TÁCTIL (Deslizar con el dedo en móviles)
+  const handleCarouselScroll = (e) => {
+    // Si la rueda del mouse está trabajando, ignoramos este evento
+    if (isAutoScrolling.current) return;
+
+    const container = e.target;
+    const centerPosition = container.scrollLeft + container.clientWidth / 2;
+
+    let closestId = activeSongId;
+    let minDistance = Infinity;
+
+    const cards = container.querySelectorAll('.song-card');
+    cards.forEach(card => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(centerPosition - cardCenter);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestId = card.dataset.id;
+      }
+    });
+
+    if (closestId && closestId !== activeSongId) {
+      setActiveSongId(closestId);
+    }
+  };
+
+  // Auto-centrado inicial
+  useEffect(() => {
+    if (!isPlaying) {
+      setTimeout(() => navigateToSong(activeSongId), 100);
+    }
+  }, [isPlaying]); // Solo se dispara al cambiar de pantalla
 
   const totalDuration = useMemo(() => {
     if (!lyricsData || lyricsData.length === 0) return 0;
@@ -74,11 +160,8 @@ function App() {
 
   if (activeLineIndex === -1) activeLineIndex = 0;
   const activeLine = lyricsData[activeLineIndex] || null;
-
   let timeInLine = 0;
-  if (activeLine) {
-    timeInLine = currentTime - activeLine.time;
-  }
+  if (activeLine) timeInLine = currentTime - activeLine.time;
 
   const colorStyle = { color: activeSong.themeColor };
 
@@ -88,53 +171,136 @@ function App() {
       <audio ref={audioRef} src={activeSong.audioSrc} preload="auto" />
 
       <div className="absolute inset-0 z-0 pointer-events-none opacity-30">
-        <div className="absolute top-1/4 left-1/4 text-4xl animate-bounce delay-1000">♪</div>
-        <div className="absolute top-1/3 right-1/4 text-6xl animate-pulse">♫</div>
-        <div className="absolute bottom-1/4 left-1/3 text-5xl animate-bounce">♪</div>
+        <div className="absolute top-1/4 left-1/4 text-4xl animate-bounce delay-1000">{"\u266A"}</div>
+        <div className="absolute top-1/3 right-1/4 text-6xl animate-pulse">{"\u266B"}</div>
+        <div className="absolute bottom-1/4 left-1/3 text-5xl animate-bounce">{"\u266A"}</div>
       </div>
 
       {!isPlaying ? (
-        <div className="text-center z-10 flex flex-col items-center justify-center h-full w-full max-w-md px-6">
-          <h1 className="text-5xl md:text-6xl italic font-bold mb-2 drop-shadow-[0_0_15px_currentColor]">
-            Play List
-          </h1>
-          <p className="text-xl tracking-widest uppercase opacity-70 mb-12">Elige tu pista</p>
+        // --- PANTALLA COVER FLOW ---
+        <div className="relative z-10 flex flex-col items-center justify-center h-full w-full overflow-hidden bg-neutral-950">
 
-          <div className="w-full mb-8 flex flex-col gap-3">
-            {songLibrary.map((song) => (
-              <button
-                key={song.id}
-                onClick={() => setActiveSongId(song.id)}
-                className={`p-4 border rounded-xl transition-all duration-300 flex flex-col items-center ${activeSongId === song.id
-                  ? 'border-current bg-white/10 scale-105 shadow-[0_0_20px_rgba(255,255,255,0.2)]'
-                  : 'border-white/20 opacity-50 hover:opacity-80 hover:bg-white/5'
-                  }`}
-                style={{ color: activeSongId === song.id ? song.themeColor : '#ffffff' }}
-              >
-                <span className="text-2xl font-bold">{song.title}</span>
-                <span className="text-sm opacity-80">{song.artist}</span>
-              </button>
-            ))}
+          <div className="text-center mb-4 px-6 z-30">
+            <h1 className="text-4xl md:text-5xl font-serif italic font-bold text-white tracking-wide">
+              PlayList
+            </h1>
+            <p className="text-[10px] md:text-xs tracking-[0.3em] uppercase opacity-40 mt-2 font-sans">
+              Selecciona tu tema favorito
+            </p>
           </div>
 
-          <button
+          <div className="relative w-full h-[400px] flex items-center justify-center">
+
+            <div className="absolute left-0 top-0 bottom-0 w-12 md:w-32 bg-gradient-to-r from-neutral-950 to-transparent z-20 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-12 md:w-32 bg-gradient-to-l from-neutral-950 to-transparent z-20 pointer-events-none" />
+
+            <div
+              id="carousel-container"
+              onScroll={handleCarouselScroll}
+              onWheel={handleWheel} // <-- LA MAGIA DEL MOUSE ESTÁ AQUÍ
+              className="relative flex items-center gap-4 md:gap-8 w-full h-full overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+              style={{ paddingLeft: 'calc(50vw - 128px)', paddingRight: 'calc(50vw - 128px)' }}
+            >
+              {songLibrary.map((song) => {
+                const isActive = activeSongId === song.id;
+
+                return (
+                  <motion.div
+                    id={`card-${song.id}`}
+                    data-id={song.id}
+                    key={song.id}
+                    onClick={() => navigateToSong(song.id)} // Usamos la misma función maestra
+                    animate={{
+                      scale: isActive ? 1.15 : 0.9,
+                      opacity: isActive ? 1 : 0.3,
+                      y: isActive ? -10 : 0
+                    }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    className={`song-card shrink-0 snap-center relative w-64 h-80 rounded-3xl cursor-pointer flex flex-col p-6 border overflow-hidden ${isActive ? 'border-white/30 z-30' : 'border-white/5 z-10'
+                      }`}
+                    style={{
+                      backgroundColor: '#0a0a0a',
+                      boxShadow: isActive ? `0 20px 40px rgba(0,0,0,0.8), 0 0 40px ${song.themeColor}20` : 'none'
+                    }}
+                  >
+                    <div
+                      className="absolute top-[-20%] left-[-20%] w-full h-full opacity-20 blur-3xl rounded-full pointer-events-none"
+                      style={{ backgroundColor: song.themeColor }}
+                    />
+
+                    {/* --- ZONA DE LA PORTADA Y EL VINILO --- */}
+                    <div className="relative w-full h-36 flex items-center justify-center mt-2 mb-4">
+                      <motion.div
+                        animate={{
+                          x: isActive ? 50 : 0,
+                          rotate: isActive ? 360 : 0,
+                          opacity: isActive ? 1 : 0
+                        }}
+                        transition={{
+                          x: { type: "spring", stiffness: 100, damping: 15 },
+                          rotate: { repeat: Infinity, duration: 4, ease: "linear" }
+                        }}
+                        className="absolute w-28 h-28 rounded-full bg-neutral-900 shadow-xl flex items-center justify-center border-[3px] border-neutral-800"
+                        style={{ backgroundImage: 'repeating-radial-gradient(circle, #111, #111 2px, #222 3px, #222 4px)' }}
+                      >
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: song.themeColor }}>
+                          <div className="w-2.5 h-2.5 bg-neutral-950 rounded-full" />
+                        </div>
+                      </motion.div>
+
+                      <div
+                        className="relative z-10 w-32 h-32 rounded-xl shadow-2xl flex items-center justify-center border border-white/10"
+                        style={{ background: `linear-gradient(135deg, #1a1a1a, ${song.themeColor}60)` }}
+                      >
+                        <span className="text-5xl opacity-80" style={{ color: song.themeColor, textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>{"\uD83C\uDFB5"}</span>
+                      </div>
+                    </div>
+
+                    <div className="relative z-10 mt-auto text-center flex flex-col items-center">
+                      {isActive && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mb-2"
+                        >
+                          <span
+                            className="text-[10px] font-mono border px-2 py-1 rounded-full uppercase tracking-widest"
+                            style={{ color: song.themeColor, borderColor: song.themeColor, backgroundColor: `${song.themeColor}10` }}
+                          >
+                            Selected
+                          </span>
+                        </motion.div>
+                      )}
+
+                      <h3 className="text-2xl font-bold text-white mb-1 drop-shadow-md truncate w-full">
+                        {song.title}
+                      </h3>
+                      <p className="text-xs uppercase tracking-[0.2em] opacity-60 font-sans truncate w-full">
+                        {song.artist}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => {
               const startAt = activeSong.snippetStart || 0;
               setCurrentTime(startAt);
-              if (audioRef.current) {
-                audioRef.current.currentTime = startAt;
-              }
+              if (audioRef.current) audioRef.current.currentTime = startAt;
               setIsPlaying(true);
             }}
-            className="text-7xl mt-4 hover:scale-110 transition-transform duration-300 cursor-pointer drop-shadow-[0_0_25px_currentColor]"
+            className="mt-2 flex items-center justify-center w-32 h-14 bg-white text-black font-sans font-bold text-xs tracking-[0.2em] rounded-full uppercase shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_white] transition-shadow z-30 cursor-pointer"
           >
-            ▶
-          </button>
+            PLAY
+          </motion.button>
         </div>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center p-4 absolute inset-0 text-center z-10">
-
-          {/* --- NUEVA SECCIÓN DE EFECTOS DE FONDO --- */}
           <AnimatePresence>
             {activeSong.visualEffects?.map((effect, index) => {
               const isEffectActive = currentTime >= effect.startTime && currentTime <= effect.endTime;
@@ -149,17 +315,14 @@ function App() {
                     className="absolute inset-0 z-0"
                   >
                     <RoseEffect />
-
                   </motion.div>
                 );
               }
               return null;
             })}
           </AnimatePresence>
-          {/* ---------------------------------------- */}
 
           <div className="w-full max-w-5xl z-20 relative px-4 flex flex-col gap-6 items-center min-h-[50vh] justify-center">
-
             <div className="flex flex-col items-center mb-12 min-h-[200px] justify-center relative w-full">
               <AnimatePresence mode="wait">
                 {activeLine ? (
@@ -183,7 +346,7 @@ function App() {
                   </motion.div>
                 ) : (
                   <motion.span initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} className="text-4xl">
-                    ♪
+                    {"\u266A"}
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -237,7 +400,6 @@ function App() {
                 </AnimatePresence>
               )}
             </div>
-
           </div>
 
           <div className="absolute bottom-10 left-0 w-full flex justify-center z-50">

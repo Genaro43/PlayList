@@ -87,12 +87,12 @@ const LaIngrata = {
                 { t: "hoy " },
                 { t: "no " },
                 { t: "me " },
-                { t: "digas" }
+                { t: "digas", d: 0.3 }
             ],
             duration: 2.1
         },
         {
-            time: 25.0,
+            time: 24.5,
             text: [
                 { t: "Que " },
                 { t: "sin " },
