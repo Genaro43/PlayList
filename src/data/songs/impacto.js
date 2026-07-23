@@ -5,14 +5,14 @@ const impacto = {
     title: 'Impacto',
     artist: 'Enjambre',
     themeColor: '#ff9900',
-    snippetStart: 146.8,
-    visualEffects: [
-        {
-            type: 'rose',
-            startTime: 155.0, // Segundo exacto donde empieza a crecer el tallo
-            endTime: 180.0    // Segundo exacto donde la rosa desaparece (puedes ajustarlo)
-        }
-    ],
+    //snippetStart: 146.8,
+    // visualEffects: [
+    //     {
+    //         type: 'rose',
+    //         startTime: 155.0, // Segundo exacto donde empieza a crecer el tallo
+    //         endTime: 180.0    // Segundo exacto donde la rosa desaparece (puedes ajustarlo)
+    //     }
+    // ],
     audioSrc: '/music/Impacto.mp3',
     lyrics: [
         {
