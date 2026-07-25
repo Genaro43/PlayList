@@ -9,6 +9,10 @@ import rewardAnimation from '../assets/Rewards.json';
 import FashionableGirlAnimation from '../assets/FashionableGirl.json';
 import microphoneAnimation from '../assets/Microphone.json';
 import PaperPlaneHeartAnimation from '../assets/PaperPlaneHeart.json';
+import FallingRosesAnimation from '../assets/FallingRoses.json';
+import RocketDuckAnimation from '../assets/RocketDuck.json';
+import AnimateHeartAnimation from '../assets/AnimateHeart.json';
+import ButterflyheartsAnimation from '../assets/Butterflyhearts.json'
 
 // 2. Creas un "Diccionario" de animaciones
 const animations = {
@@ -18,7 +22,11 @@ const animations = {
     'reward': rewardAnimation,
     'fashionableGirl': FashionableGirlAnimation,
     'microphone': microphoneAnimation,
-    'paperPlaneHeart': PaperPlaneHeartAnimation
+    'paperPlaneHeart': PaperPlaneHeartAnimation,
+    'FallingRoses': FallingRosesAnimation,
+    'RocketDuck': RocketDuckAnimation,
+    'AnimateHeart': AnimateHeartAnimation,
+    'Butterflyhearts': ButterflyheartsAnimation,
 };
 
 const LottieEffect = ({ animationName }) => {

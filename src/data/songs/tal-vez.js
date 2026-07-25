@@ -1,4 +1,5 @@
 const talVez = {
+    id: 'tal-vez',
     title: 'Tal Vez',
     artist: 'Paulo Londra',
     themeColor: '#7a0000',

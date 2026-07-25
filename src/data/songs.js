@@ -6,6 +6,7 @@ import yaNoSeQueHacerConmigo from "../data/songs/ya_no_se_que_hacer_conmigo";
 import LaIngrata from "../data/songs/La_ingrata";
 import impacto from "../data/songs/impacto";
 import talVez from "../data/songs/tal-vez";
+import eresTu from "../data/songs/EresTu";
 
 // src/data/songs.js
 export const songLibrary = [
@@ -15,4 +16,5 @@ export const songLibrary = [
   yaNoSeQueHacerConmigo,
   //LaIngrata
   talVez,
+  eresTu,
 ];

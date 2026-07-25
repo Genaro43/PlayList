@@ -323,7 +323,7 @@ function App() {
             <div className="flex flex-col items-center min-h-[150px] justify-end relative w-full">
               <AnimatePresence mode="wait">
                 {activeLine ? (
-                  <motion.div key={activeLineIndex} initial={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(10px)' }} animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -20, scale: 1.05, filter: 'blur(10px)' }} transition={{ duration: 0.4, ease: "easeOut" }} className="w-full flex justify-center py-2">
+                  <motion.div key={activeLineIndex} initial={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(10px)' }} animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -20, scale: 1.05, filter: 'blur(10px)' }} transition={{ duration: 0.2, ease: "easeOut" }} className="w-full flex justify-center py-2">
                     <div className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold leading-tight text-center px-2 w-full drop-shadow-2xl">
                       <KaraokeLine text={activeLine.text} timeInLine={timeInLine} lineDuration={activeLine.duration} activeColor={activeLine.lineColor || activeSong.themeColor} isLineActive={true} />
                     </div>
