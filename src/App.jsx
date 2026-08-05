@@ -8,7 +8,7 @@ import { songLibrary } from './data/songs';
 function App() {
   const [activeSongId, setActiveSongId] = useState(songLibrary[0].id);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false); // ESTADO PARA LA PAUSA
+  const [isPaused, setIsPaused] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -19,7 +19,6 @@ function App() {
   const isAutoScrolling = useRef(false);
   const autoScrollTimeout = useRef(null);
   const wheelTimeout = useRef(null);
-  // NUEVO REF: Controla la sobrecarga de estado en móviles (Debounce)
   const scrollTimeout = useRef(null);
 
   const activeSong = useMemo(() =>
@@ -33,8 +32,6 @@ function App() {
     isAutoScrolling.current = true;
     setActiveSongId(songId);
 
-    // MEJORA: Cálculo geométrico para evitar saltos globales de la página. 
-    // Ahora es un scroll aislado al contenedor perfecto.
     const card = document.getElementById(`card-${songId}`);
     const container = carouselRef.current;
 
@@ -111,20 +108,17 @@ function App() {
 
   // --- RUEDA Y TOUCH DEL CAROUSEL ---
   const handleWheel = (e) => {
-    // Ignorar si usan el scroll horizontal nativo (Trackpads de laptops)
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     if (wheelTimeout.current) return;
 
     const currentIndex = songLibrary.findIndex(s => s.id === activeSongId);
     let nextIndex = currentIndex;
 
-    // Sensibilidad ajustada para mayor fluidez
     if (e.deltaY > 15 && currentIndex < songLibrary.length - 1) nextIndex++;
     else if (e.deltaY < -15 && currentIndex > 0) nextIndex--;
 
     if (nextIndex !== currentIndex) {
       navigateToSong(songLibrary[nextIndex].id);
-      // Timeout ligeramente reducido (de 400 a 350) para que se sienta responsivo sin volverse loco
       wheelTimeout.current = setTimeout(() => { wheelTimeout.current = null; }, 350);
     }
   };
@@ -133,12 +127,10 @@ function App() {
     if (isAutoScrolling.current) return;
 
     const container = e.target;
-    // Calculamos el centro exacto del contenedor en tiempo real
     const centerPosition = container.scrollLeft + container.clientWidth / 2;
     let closestId = activeSongId;
     let minDistance = Infinity;
 
-    // Revisamos todas las tarjetas para ver cuál está cruzando el centro
     container.querySelectorAll('.song-card').forEach(card => {
       const cardCenter = card.offsetLeft + card.offsetWidth / 2;
       const distance = Math.abs(centerPosition - cardCenter);
@@ -148,8 +140,6 @@ function App() {
       }
     });
 
-    // MAGIA AQUÍ: React solo re-renderizará y animará cuando la tarjeta
-    // central REALMENTE cambie, no en cada milímetro de scroll.
     if (closestId && closestId !== activeSongId) {
       setActiveSongId(closestId);
     }
@@ -169,7 +159,6 @@ function App() {
       if (audioElement && isPlaying) {
         setCurrentTime(audioElement.currentTime);
 
-        // Regresar a playlist cuando termina la canción
         if (audioElement.currentTime >= totalDuration && totalDuration > 0) {
           stopAndReturnToPlaylist();
           return;
@@ -192,10 +181,47 @@ function App() {
     if (!isPlaying) setTimeout(() => navigateToSong(activeSongId), 100);
   }, [isPlaying, activeSongId]);
 
+  // --- MEJORA MÓVIL: MANTENER LA PANTALLA ENCENDIDA ---
+  useEffect(() => {
+    let wakeLock = null;
+
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && isPlaying) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn('Wake Lock error:', err);
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLock !== null) {
+        await wakeLock.release();
+        wakeLock = null;
+      }
+    };
+
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    return () => {
+      releaseWakeLock();
+    };
+  }, [isPlaying]);
+
+  // --- MEJORA MÓVIL: SOPORTE TOUCH Y CLICK UNIFICADO ---
   const handleSeek = (e) => {
     if (!progressBarRef.current || !audioRef.current) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
+
+    // Soporte tanto para Click de Mouse como para Toque de Dedo
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clickX = clientX - rect.left;
+
     const percentage = Math.max(0, Math.min(1, clickX / rect.width));
     const newTime = percentage * totalDuration;
     audioRef.current.currentTime = newTime;
@@ -216,7 +242,6 @@ function App() {
   return (
     <div className="h-screen w-full bg-black flex flex-col items-center justify-center overflow-hidden font-serif relative" style={colorStyle}>
 
-      {/* AÑADIDOS LOS EVENTOS ONPLAY / ONPAUSE AL AUDIO */}
       <audio
         ref={audioRef}
         src={activeSong.audioSrc}
@@ -225,12 +250,33 @@ function App() {
         onPause={handlePauseEvent}
       />
 
-      <button
-        onClick={toggleFullscreen}
-        className="absolute top-4 right-4 z-50 text-white/40 hover:text-white text-xs uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md transition-all cursor-pointer"
-      >
-        {isFullscreen ? '⛶ Salir' : '⛶ Pantalla Completa'}
-      </button>
+      {/* HEADER CONTROLS */}
+      <div className="absolute top-4 w-full px-4 flex justify-between items-center z-50 pointer-events-none">
+
+        {/* BOTÓN VOLVER (Solo visible si está reproduciendo) */}
+        <div className="pointer-events-auto">
+          {isPlaying && (
+            <button
+              onClick={stopAndReturnToPlaylist}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-black/40 border border-white/10 backdrop-blur-md text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+            >
+              <span className="text-xl">{"\u2715"}</span> {/* Icono de X */}
+            </button>
+          )}
+        </div>
+
+        {/* BOTÓN FULLSCREEN (Responsivo) */}
+        <button
+          onClick={toggleFullscreen}
+          className="pointer-events-auto text-white/60 hover:text-white flex items-center justify-center h-10 px-4 md:px-5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md transition-all cursor-pointer"
+        >
+          {isFullscreen ? (
+            <><span className="text-lg md:mr-2">⛶</span><span className="hidden md:inline text-xs uppercase tracking-widest">Salir</span></>
+          ) : (
+            <><span className="text-lg md:mr-2">⛶</span><span className="hidden md:inline text-xs uppercase tracking-widest">Pantalla Completa</span></>
+          )}
+        </button>
+      </div>
 
       <div className="absolute inset-0 z-0 pointer-events-none opacity-30">
         <div className="absolute top-1/4 left-1/4 text-4xl animate-bounce delay-1000">{"\u266A"}</div>
@@ -319,13 +365,11 @@ function App() {
         // --- PANTALLA REPRODUCCIÓN (KARAOKE) ---
         <div className="w-full h-full flex flex-col items-center justify-center p-4 absolute inset-0 text-center z-10 overflow-hidden">
 
-          {/* FONDO AMBIENTAL */}
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex justify-center items-center opacity-30">
             <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3], x: [0, 50, -50, 0] }} transition={{ duration: 15, repeat: Infinity, ease: "linear" }} className="absolute w-[40vw] h-[40vw] rounded-full blur-[120px]" style={{ backgroundColor: activeSong.themeColor, top: '-10%', left: '-10%' }} />
             <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2], x: [0, -60, 60, 0] }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} className="absolute w-[50vw] h-[50vw] rounded-full blur-[150px]" style={{ backgroundColor: activeSong.themeColor, bottom: '-20%', right: '-10%' }} />
           </div>
 
-          {/* --- AQUÍ ESTÁ EL MOTOR DE EFECTOS MÚLTIPLES --- */}
           <AnimatePresence>
             {activeSong.visualEffects?.map((effect, index) => {
               const isEffectActive = currentTime >= effect.startTime && currentTime <= effect.endTime;
@@ -339,7 +383,6 @@ function App() {
                   exit={{ opacity: 0, transition: { duration: 2 } }}
                   className="absolute inset-0 z-0 pointer-events-none"
                 >
-                  {/* El Switch Mágico: Aquí agregarás tus nuevos componentes según su 'type' */}
                   {effect.type === 'rose' && <RoseEffect />}
                   {effect.type === 'lottie' && (
                     <LottieEffect animationName={effect.animationName} />
@@ -348,7 +391,6 @@ function App() {
               );
             })}
           </AnimatePresence>
-          {/* --- FIN DEL MOTOR DE EFECTOS --- */}
 
           {/* CONTENEDOR DE LETRAS */}
           <div className="w-full max-w-5xl z-20 relative px-4 flex flex-col gap-8 items-center h-[60vh] justify-center mt-[-10vh]">
@@ -394,28 +436,32 @@ function App() {
           </div>
 
           {/* MÓDULO DE CONTROLES INFERIOR */}
-          <div className="absolute bottom-0 left-0 w-full pt-16 pb-8 px-6 md:px-12 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center justify-end z-50">
+          <div className="absolute bottom-0 left-0 w-full pt-16 pb-8 px-4 md:px-12 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center justify-end z-50">
 
             {/* Barra de Progreso y Tiempos */}
-            <div className="flex items-center gap-4 w-full max-w-4xl mb-4">
-
-              {/* --- TU IMPLEMENTACIÓN DEL TIEMPO (Modo Desarrollo) --- */}
-              <span className={`text-xs font-mono opacity-80 text-right ${activeSong.isDevMode ? 'w-20 text-[10px] text-green-400 font-bold' : 'w-12'}`}>
+            <div className="flex items-center gap-2 md:gap-4 w-full max-w-4xl mb-4">
+              <span className={`text-xs font-mono opacity-80 text-right ${activeSong.isDevMode ? 'w-20 text-[10px] text-green-400 font-bold' : 'w-10 md:w-12'}`}>
                 {activeSong.isDevMode
                   ? currentTime.toFixed(3)
                   : `${Math.floor(currentTime / 60)}:${(Math.floor(currentTime % 60)).toString().padStart(2, '0')}`
                 }
               </span>
 
-              <div className="flex-1 h-2 flex items-center cursor-pointer group relative" onClick={handleSeek} ref={progressBarRef}>
-                <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden relative">
+              {/* ÁREA TÁCTIL EXPANDIDA */}
+              <div
+                className="flex-1 h-10 flex items-center cursor-pointer group relative"
+                onClick={handleSeek}
+                onTouchStart={handleSeek}
+                onTouchMove={handleSeek}
+                ref={progressBarRef}
+              >
+                <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden relative pointer-events-none">
                   <motion.div className="h-full absolute left-0 top-0" style={{ backgroundColor: activeSong.themeColor }} initial={{ width: '0%' }} animate={{ width: `${(currentTime / totalDuration) * 100}%` }} transition={{ duration: 0.1 }} />
                 </div>
-                <motion.div className="absolute w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-[0_0_10px_currentColor]" style={{ backgroundColor: activeSong.themeColor, left: `calc(${(currentTime / totalDuration) * 100}% - 6px)` }} />
+                <motion.div className="absolute w-3.5 h-3.5 rounded-full opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-[0_0_10px_currentColor] pointer-events-none" style={{ backgroundColor: activeSong.themeColor, left: `calc(${(currentTime / totalDuration) * 100}% - 7px)` }} />
               </div>
 
-              {/* --- TU IMPLEMENTACIÓN DEL TIEMPO TOTAL (Modo Desarrollo) --- */}
-              <span className={`text-xs font-mono opacity-80 text-left ${activeSong.isDevMode ? 'w-20 text-[10px] text-green-400 font-bold' : 'w-12'}`}>
+              <span className={`text-xs font-mono opacity-80 text-left ${activeSong.isDevMode ? 'w-20 text-[10px] text-green-400 font-bold' : 'w-10 md:w-12'}`}>
                 {activeSong.isDevMode
                   ? totalDuration.toFixed(3)
                   : `${Math.floor(totalDuration / 60)}:${(Math.floor(totalDuration % 60)).toString().padStart(2, '0')}`
@@ -423,26 +469,21 @@ function App() {
               </span>
             </div>
 
-            {/* BOTONES DE NAVEGACIÓN Y REPRODUCCIÓN */}
-            <div className="flex items-center gap-6">
-              <button onClick={playPrevSong} className="text-white/60 hover:text-white transition-colors text-xl p-2 cursor-pointer" title="Canción Anterior">⏮</button>
+            {/* BOTONES DE NAVEGACIÓN Y REPRODUCCIÓN MÓVILES */}
+            <div className="flex items-center justify-center gap-8 md:gap-10 w-full mb-2">
+              <button onClick={playPrevSong} className="text-white/60 hover:text-white transition-colors text-3xl md:text-2xl p-2 cursor-pointer active:scale-95" title="Canción Anterior">
+                ⏮
+              </button>
 
-              {/* --- BOTÓN DE PAUSA FUNCIONAL (USANDO ESTADO isPaused) --- */}
               <button
                 onClick={togglePlayPause}
-                className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-bold text-sm hover:scale-105 transition-transform cursor-pointer"
+                className="w-14 h-14 md:w-12 md:h-12 rounded-full bg-white text-black flex items-center justify-center font-bold text-lg md:text-sm shadow-[0_0_15px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
                 {isPaused ? '▶' : '❚❚'}
               </button>
 
-              <button onClick={playNextSong} className="text-white/60 hover:text-white transition-colors text-xl p-2 cursor-pointer" title="Siguiente Canción">⏭</button>
-
-              <button
-                onClick={stopAndReturnToPlaylist}
-                className="ml-4 px-5 py-2 rounded-full border bg-black/40 backdrop-blur-md text-xs uppercase tracking-widest hover:bg-white/10 transition-all cursor-pointer"
-                style={{ borderColor: `${activeSong.themeColor}50`, color: activeSong.themeColor }}
-              >
-                ⟲ Playlist
+              <button onClick={playNextSong} className="text-white/60 hover:text-white transition-colors text-3xl md:text-2xl p-2 cursor-pointer active:scale-95" title="Siguiente Canción">
+                ⏭
               </button>
             </div>
           </div>
