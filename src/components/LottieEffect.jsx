@@ -4,10 +4,10 @@ import Lottie from 'lottie-react';
 // 1. Importas todos tus archivos JSON descargados de LottieFiles
 import brainAnimation from '../assets/Brain.json';
 import WorkoutAnimation from '../assets/Workout.json';
-import lightEffectAnimation from '../assets/LightEffect.json';
+import lightEffectAnimation from '../assets/lightEffect.json';
 import rewardAnimation from '../assets/Rewards.json';
 import FashionableGirlAnimation from '../assets/FashionableGirl.json';
-import microphoneAnimation from '../assets/Microphone.json';
+import microphoneAnimation from '../assets/microphone.json';
 import PaperPlaneHeartAnimation from '../assets/PaperPlaneHeart.json';
 import FallingRosesAnimation from '../assets/FallingRoses.json';
 import RocketDuckAnimation from '../assets/RocketDuck.json';
