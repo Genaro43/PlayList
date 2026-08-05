@@ -7,9 +7,11 @@ import LaIngrata from "../data/songs/La_ingrata";
 import impacto from "../data/songs/impacto";
 import talVez from "../data/songs/tal-vez";
 import eresTu from "../data/songs/EresTu";
+import AmILosingYou from "../data/songs/AmILosingYou";
 
 // src/data/songs.js
 export const songLibrary = [
+  AmILosingYou,
   amapolas,
   perfect,
   impacto,

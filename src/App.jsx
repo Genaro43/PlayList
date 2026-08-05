@@ -19,6 +19,8 @@ function App() {
   const isAutoScrolling = useRef(false);
   const autoScrollTimeout = useRef(null);
   const wheelTimeout = useRef(null);
+  // NUEVO REF: Controla la sobrecarga de estado en móviles (Debounce)
+  const scrollTimeout = useRef(null);
 
   const activeSong = useMemo(() =>
     songLibrary.find(s => s.id === activeSongId) || songLibrary[0]
@@ -30,7 +32,17 @@ function App() {
   const navigateToSong = (songId) => {
     isAutoScrolling.current = true;
     setActiveSongId(songId);
-    document.getElementById(`card-${songId}`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+
+    // MEJORA: Cálculo geométrico para evitar saltos globales de la página. 
+    // Ahora es un scroll aislado al contenedor perfecto.
+    const card = document.getElementById(`card-${songId}`);
+    const container = carouselRef.current;
+
+    if (card && container) {
+      const scrollPos = card.offsetLeft - (container.clientWidth / 2) + (card.offsetWidth / 2);
+      container.scrollTo({ left: scrollPos, behavior: 'smooth' });
+    }
+
     if (autoScrollTimeout.current) clearTimeout(autoScrollTimeout.current);
     autoScrollTimeout.current = setTimeout(() => { isAutoScrolling.current = false; }, 500);
   };
@@ -99,28 +111,48 @@ function App() {
 
   // --- RUEDA Y TOUCH DEL CAROUSEL ---
   const handleWheel = (e) => {
+    // Ignorar si usan el scroll horizontal nativo (Trackpads de laptops)
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     if (wheelTimeout.current) return;
+
     const currentIndex = songLibrary.findIndex(s => s.id === activeSongId);
     let nextIndex = currentIndex;
-    if (e.deltaY > 0 && currentIndex < songLibrary.length - 1) nextIndex++;
-    else if (e.deltaY < 0 && currentIndex > 0) nextIndex--;
-    if (nextIndex !== currentIndex) navigateToSong(songLibrary[nextIndex].id);
-    wheelTimeout.current = setTimeout(() => { wheelTimeout.current = null; }, 400);
+
+    // Sensibilidad ajustada para mayor fluidez
+    if (e.deltaY > 15 && currentIndex < songLibrary.length - 1) nextIndex++;
+    else if (e.deltaY < -15 && currentIndex > 0) nextIndex--;
+
+    if (nextIndex !== currentIndex) {
+      navigateToSong(songLibrary[nextIndex].id);
+      // Timeout ligeramente reducido (de 400 a 350) para que se sienta responsivo sin volverse loco
+      wheelTimeout.current = setTimeout(() => { wheelTimeout.current = null; }, 350);
+    }
   };
 
   const handleCarouselScroll = (e) => {
     if (isAutoScrolling.current) return;
+
     const container = e.target;
+    // Calculamos el centro exacto del contenedor en tiempo real
     const centerPosition = container.scrollLeft + container.clientWidth / 2;
     let closestId = activeSongId;
     let minDistance = Infinity;
+
+    // Revisamos todas las tarjetas para ver cuál está cruzando el centro
     container.querySelectorAll('.song-card').forEach(card => {
       const cardCenter = card.offsetLeft + card.offsetWidth / 2;
       const distance = Math.abs(centerPosition - cardCenter);
-      if (distance < minDistance) { minDistance = distance; closestId = card.dataset.id; }
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestId = card.dataset.id;
+      }
     });
-    if (closestId && closestId !== activeSongId) setActiveSongId(closestId);
+
+    // MAGIA AQUÍ: React solo re-renderizará y animará cuando la tarjeta
+    // central REALMENTE cambie, no en cada milímetro de scroll.
+    if (closestId && closestId !== activeSongId) {
+      setActiveSongId(closestId);
+    }
   };
 
   const totalDuration = useMemo(() => {

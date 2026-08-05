@@ -5,7 +5,7 @@ const eresTu = {
     title: "Eres Tú",
     artist: "Carla Morrison",
     themeColor: "#e42ac5",
-    isDevMode: true,
+    isDevMode: false,
     snippetStart: 21.5,
     audioSrc: "/music/EresTu.mp3",
     visualEffects: [
